@@ -94,6 +94,13 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	setupLog.Info("Concurrency settings",
+		"sandbox", sandboxConcurrentWorkers,
+		"sandboxClaim", sandboxClaimConcurrentWorkers,
+		"sandboxWarmPool", sandboxWarmPoolConcurrentWorkers,
+		"sandboxTemplate", sandboxTemplateConcurrentWorkers,
+	)
+
 	// Validation checks for concurrency flags
 	if sandboxConcurrentWorkers <= 0 || sandboxClaimConcurrentWorkers <= 0 || sandboxWarmPoolConcurrentWorkers <= 0 {
 		setupLog.Error(nil, "concurrent workers must be greater than 0")
@@ -202,6 +209,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Register the custom Sandbox metric collector globally.
+	asmetrics.RegisterSandboxCollector(mgr.GetClient(), mgr.GetLogger().WithName("sandbox-collector"))
+
 	if err = (&controllers.SandboxReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -234,6 +244,7 @@ func main() {
 
 		if err = (&extensionscontrollers.SandboxWarmPoolReconciler{
 			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
 		}).SetupWithManager(mgr, sandboxWarmPoolConcurrentWorkers); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "SandboxWarmPool")
 			os.Exit(1)
